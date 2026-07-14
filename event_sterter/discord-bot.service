@@ -1,0 +1,18 @@
+[Unit]
+Description=Discord 企画管理Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# ユーザー名は実際のVMユーザーに置き換えてください（whoami で確認）
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/bot
+# 環境変数（トークン等）はこのファイルに記述
+EnvironmentFile=/home/YOUR_USERNAME/bot/bot.env
+ExecStart=/home/YOUR_USERNAME/bot/venv/bin/python /home/YOUR_USERNAME/bot/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
