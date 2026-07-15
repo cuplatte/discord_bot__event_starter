@@ -55,7 +55,7 @@ def collect_member_names(role: discord.Role) -> list[str]:
 
 
 # ---- /割り勘 -------------------------------------------------------------
-@bot.tree.command(name="walica", description="このチャンネルの参加者でwalicaを作成します")
+@bot.tree.command(name="割り勘", description="このチャンネルの参加者でwalica割り勘を作成します")
 async def warikan(interaction: discord.Interaction):
     channel = interaction.channel
     if not isinstance(channel, discord.TextChannel):
@@ -80,11 +80,6 @@ async def warikan(interaction: discord.Interaction):
     if not names:
         await interaction.response.send_message(
             "参加者ロールを持つメンバーがいません。", ephemeral=True
-        )
-        return
-    if len(names) == 1:
-        await interaction.response.send_message(
-            "参加者ロールを持つメンバーが1人のみです。", ephemeral=True
         )
         return
 
@@ -120,8 +115,16 @@ async def warikan(interaction: discord.Interaction):
 @bot.event
 async def on_ready():
     try:
-        synced = await bot.tree.sync()
-        print(f"Slash commands synced: {len(synced)}")
+        guild_id = os.environ.get("GUILD_ID")
+        if guild_id:
+            # ギルド（サーバー）限定同期。反映が即時で、他Botと干渉しない。
+            guild = discord.Object(id=int(guild_id))
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            print(f"Slash commands synced to guild {guild_id}: {len(synced)}")
+        else:
+            synced = await bot.tree.sync()
+            print(f"Slash commands synced (global): {len(synced)}")
     except Exception as e:
         print(f"Sync failed: {e}")
     print(f"Logged in as {bot.user}")

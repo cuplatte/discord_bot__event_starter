@@ -141,8 +141,7 @@ async def project_start(interaction: discord.Interaction, 企画名: str):
             f"このチャンネルでは `@everyone` / `@here` は使えません。\n\n"
             f"**参加者全員に通知したいとき**は、下記の参加者ロールをメンションしてください。\n"
             f"閲覧者には通知が飛びません。\n\n"
-            f"🔔 参加者へ通知: {participant_role.mention}\n\n"
-            f"walicaを作成したい場合は /walica を実行してください。（参加者ロールの人をメンバーとしてwalica作成します）"
+            f"🔔 参加者へ通知: {participant_role.mention}"
         ),
         color=0x57F287,
     )
@@ -332,8 +331,17 @@ async def project_end(interaction: discord.Interaction,
 @bot.event
 async def on_ready():
     try:
-        synced = await bot.tree.sync()
-        print(f"Slash commands synced: {len(synced)}")
+        guild_id = os.environ.get("GUILD_ID")
+        if guild_id:
+            # ギルド（サーバー）限定同期。反映が即時なのでテスト時に便利。
+            guild = discord.Object(id=int(guild_id))
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            print(f"Slash commands synced to guild {guild_id}: {len(synced)}")
+        else:
+            # グローバル同期（全サーバーに反映されるが最大1時間かかる）
+            synced = await bot.tree.sync()
+            print(f"Slash commands synced (global): {len(synced)}")
     except Exception as e:
         print(f"Sync failed: {e}")
     print(f"Logged in as {bot.user}")
