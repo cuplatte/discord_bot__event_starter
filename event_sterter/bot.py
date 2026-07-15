@@ -81,14 +81,24 @@ async def project_start(interaction: discord.Interaction, 企画名: str):
     # @everyone は見えない。2ロールは閲覧・送信とも可。
     # Bot自身も閲覧・送信・リアクション可にしておかないと、
     # 作成直後のメッセージ投稿が 403 Missing Access で失敗する。
+    #
+    # mention_everyone=False で、このチャンネルでは誰も @everyone / @here を
+    # 使えないようにする。閲覧者に通知を飛ばさず、参加者へは参加者ロールの
+    # メンションで連絡してもらう運用にするため。
     overwrites = {
-        guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        guild.default_role: discord.PermissionOverwrite(
+            view_channel=False, mention_everyone=False,
+        ),
         guild.me: discord.PermissionOverwrite(
             view_channel=True, send_messages=True, add_reactions=True,
             manage_messages=True, read_message_history=True,
         ),
-        participant_role: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-        viewer_role: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+        participant_role: discord.PermissionOverwrite(
+            view_channel=True, send_messages=True, mention_everyone=False,
+        ),
+        viewer_role: discord.PermissionOverwrite(
+            view_channel=True, send_messages=True, mention_everyone=False,
+        ),
     }
 
     active_category = await get_or_create_category(guild, ACTIVE_CATEGORY)
@@ -121,6 +131,25 @@ async def project_start(interaction: discord.Interaction, 企画名: str):
     msg = await interaction.channel.send(embed=embed)
     await msg.add_reaction(EMOJI_PARTICIPANT)
     await msg.add_reaction(EMOJI_VIEWER)
+
+    # --- 企画チャンネル内に、通知運用の案内を投稿 ---
+    # このチャンネルでは @everyone が使えないので、参加者全員に連絡したいときは
+    # 参加者ロールをメンションするよう案内する。閲覧者には通知が飛ばない。
+    guide = discord.Embed(
+        title="📌 このチャンネルでの連絡方法",
+        description=(
+            f"このチャンネルでは `@everyone` / `@here` は使えません。\n\n"
+            f"**参加者全員に通知したいとき**は、下記の参加者ロールをメンションしてください。\n"
+            f"閲覧者には通知が飛びません。\n\n"
+            f"🔔 参加者へ通知: {participant_role.mention}"
+        ),
+        color=0x57F287,
+    )
+    # ロールメンションを実際に通知として飛ばさないよう、案内では抑制する
+    await channel.send(
+        embed=guide,
+        allowed_mentions=discord.AllowedMentions.none(),
+    )
 
     await interaction.followup.send(
         f"企画「{base_name}」を作成しました → {channel.mention}\n"
