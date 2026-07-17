@@ -24,6 +24,8 @@ TOKEN = os.environ["DISCORD_TOKEN"]
 ARCHIVE_CATEGORY = os.environ.get("ARCHIVE_CATEGORY", "アーカイブ")
 ACTIVE_CATEGORY = os.environ.get("ACTIVE_CATEGORY", "進行中の企画")
 ADMIN_ROLE_NAME = os.environ.get("ADMIN_ROLE_NAME", "管理者")
+# 参加案内メッセージの送信先チャンネルID（未設定ならコマンド実行チャンネルに送信）
+ANNOUNCE_CHANNEL_ID = os.environ.get("ANNOUNCE_CHANNEL_ID")
 
 # リアクション絵文字とロール種別の対応
 EMOJI_PARTICIPANT = "✅"  # 参加者ロール
@@ -110,9 +112,16 @@ async def project_start(interaction: discord.Interaction, 企画名: str):
     )
 
     # --- リアクション参加メッセージ ---
-    # 参加案内は「コマンドを実行したチャンネル」に投稿する。
+    # 参加案内は基本「コマンドを実行したチャンネル」に投稿する。
     # 企画チャンネルは初期状態で @everyone 非表示のため、そこに案内を出すと
     # まだ参加していない人が案内を見られない。全員が見える実行チャンネルに出す。
+    # ANNOUNCE_CHANNEL_ID が設定されていれば、そちらを優先する。
+    announce_channel = interaction.channel
+    if ANNOUNCE_CHANNEL_ID:
+        found = guild.get_channel(int(ANNOUNCE_CHANNEL_ID))
+        if found is not None:
+            announce_channel = found
+
     embed = discord.Embed(
         title=f"📢 {企画名}",
         description=(
@@ -127,10 +136,17 @@ async def project_start(interaction: discord.Interaction, 企画名: str):
     # ロールIDをフッターに埋め込み、リアクション処理時に参照する
     embed.set_footer(text=f"pids:{participant_role.id}:{viewer_role.id}")
 
-    # コマンドを実行したチャンネルに投稿（Bot・全員が見えるので権限エラーにならない）
-    msg = await interaction.channel.send(embed=embed)
+    # announce_channel に投稿（Bot・全員が見えるので権限エラーにならない）
+    msg = await announce_channel.send(embed=embed)
     await msg.add_reaction(EMOJI_PARTICIPANT)
     await msg.add_reaction(EMOJI_VIEWER)
+
+    # announce_channel がコマンド実行チャンネルと異なる場合、実行チャンネルには
+    # 案内メッセージへのリンクだけ転送する（リアクションはannounce_channel側のみ有効）
+    if announce_channel.id != interaction.channel.id:
+        await interaction.channel.send(
+            f"📢 参加案内を{announce_channel.mention}に投稿しました → {msg.jump_url}"
+        )
 
     # --- 企画チャンネル内に、通知運用の案内を投稿 ---
     # このチャンネルでは @everyone が使えないので、参加者全員に連絡したいときは
@@ -153,7 +169,7 @@ async def project_start(interaction: discord.Interaction, 企画名: str):
 
     await interaction.followup.send(
         f"企画「{base_name}」を作成しました → {channel.mention}\n"
-        f"参加募集メッセージをこのチャンネルに投稿しました。", ephemeral=True
+        f"参加募集メッセージを{announce_channel.mention}に投稿しました。", ephemeral=True
     )
 
 
